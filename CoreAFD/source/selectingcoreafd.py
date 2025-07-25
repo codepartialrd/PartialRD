@@ -78,11 +78,12 @@ def estimate_merged_cost(df, afd_set, index_list):
     merged = defaultdict(set)
     for lhs, rhs in afd_set:
         merged[lhs].add(rhs)
-    size = 0
+    dg = 0
+    mf=len(index_list)
     for lhs, rhs_set in merged.items():
         dX = df.loc[index_list, list(lhs)].drop_duplicates().shape[0]
-        size += dX * (len(lhs) + len(rhs_set))
-    return size
+        dg+=(mf-dX)*len(rhs_set)-dX*len(lhs)
+    return dg
 
 
 def compute_max_independent_set(graph_tmp, n):
@@ -104,12 +105,10 @@ def compute_max_independent_set(graph_tmp, n):
     return T_prime
 
 
-def computedg(df, cols, afd_set, T_prime, m):
+def computedg(df, afd_set, T_prime):
     """Computes total size after applying FD set and removing conflicting tuples."""
-    size = estimate_merged_cost(df, afd_set, list(T_prime))
-    size += len(cols) * (m - len(T_prime))
-    return size
-
+    dg = estimate_merged_cost(df, afd_set, list(T_prime))
+    return dg
 
 def cache_and_index(input_fd_sets, df, cols):
     """Main loop to evaluate each FD set and return the one with maximum gain."""
@@ -148,7 +147,7 @@ def cache_and_index(input_fd_sets, df, cols):
             continue
         graph_tmp = merge_graphs_with_cache(effective_fd_set, graphs, r, laji_fds, graph_cache, fd_to_fdset_map)
         T_prime = compute_max_independent_set(graph_tmp, n)
-        dg = computedg(df, cols, effective_fd_set, T_prime, n)
+        dg = computedg(df, effective_fd_set, T_prime)
         print(f"AFD Set {i}: dg = {dg}, time = {round(time.time() - t1, 2)}s")
         if dg > best_dg:
             best_dg = dg
@@ -158,11 +157,27 @@ def cache_and_index(input_fd_sets, df, cols):
 
 if __name__ == "__main__":
     df = pd.read_csv('../../dataset/Indusdata_running_example.csv')
-    input_fd_sets = [
-        ((('docid',), 'subcategory'), (('subcategory',), 'category'), (('timestamp',), 'click'),
-         (('timestamp_laqu', 'click'), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
-        ((('docid',), 'subcategory'), (('subcategory',), 'category'), (('timestamp_laqu', 'click'), 'duration'),
-         (('timestamp_laqu', 'click'), 'timestamp'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex'))
-    ]
-    best_afd, best_dg=cache_and_index(input_fd_sets, df, df.columns)
+    input = [((('device',), 'pctr'), (('docid',), 'subcategory'), (('duration',), 'click'), (('subcategory',), 'category'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('docid',), 'subcategory'), (('duration',), 'click'), (('subcategory',), 'category'), (('timestamp',), 'duration'), (('timestamp',), 'pctr'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('age',), 'pctr'), (('docid',), 'subcategory'), (('duration',), 'click'), (('subcategory',), 'category'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('docid',), 'subcategory'), (('duration',), 'click'), (('duration',), 'pctr'), (('subcategory',), 'category'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('age',), 'pctr'), (('docid',), 'subcategory'), (('subcategory',), 'category'), (('timestamp',), 'click'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('docid',), 'subcategory'), (('duration',), 'click'), (('subcategory',), 'category'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'pctr'), (('uin',), 'sex')),
+((('docid',), 'subcategory'), (('duration',), 'click'), (('sex',), 'pctr'), (('subcategory',), 'category'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('docid',), 'subcategory'), (('duration',), 'click'), (('subcategory',), 'category'), (('timestamp',), 'duration'), (('timestamp_laqu',), 'pctr'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('click',), 'pctr'), (('docid',), 'subcategory'), (('duration',), 'click'), (('subcategory',), 'category'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('category',), 'pctr'), (('docid',), 'subcategory'), (('subcategory',), 'category'), (('timestamp',), 'click'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('docid',), 'subcategory'), (('subcategory',), 'category'), (('subcategory',), 'pctr'), (('timestamp',), 'click'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('docid',), 'subcategory'), (('duration',), 'pctr'), (('subcategory',), 'category'), (('timestamp',), 'click'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('docid',), 'subcategory'), (('sex',), 'pctr'), (('subcategory',), 'category'), (('timestamp',), 'click'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('docid',), 'subcategory'), (('subcategory',), 'category'), (('timestamp',), 'click'), (('timestamp',), 'duration'), (('timestamp_laqu',), 'pctr'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('click',), 'pctr'), (('docid',), 'subcategory'), (('subcategory',), 'category'), (('timestamp',), 'click'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('docid',), 'subcategory'), (('subcategory',), 'category'), (('timestamp',), 'click'), (('timestamp',), 'duration'), (('timestamp',), 'pctr'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('category',), 'pctr'), (('docid',), 'subcategory'), (('duration',), 'click'), (('subcategory',), 'category'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('docid',), 'subcategory'), (('duration',), 'click'), (('subcategory',), 'category'), (('subcategory',), 'pctr'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex')),
+((('device',), 'pctr'), (('docid',), 'subcategory'), (('subcategory',), 'category'), (('timestamp',), 'click'), (('timestamp',), 'duration'), (('uin',), 'age'), (('uin',), 'device'), (('uin',), 'sex'))
+]
+    t1= time.time()
+    best_afd, best_dg=cache_and_index(input, df, df.columns)
+    print(time.time()- t1)
     print(best_afd, best_dg)
