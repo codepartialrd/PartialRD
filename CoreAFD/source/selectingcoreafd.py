@@ -36,7 +36,6 @@ def find_largest_cached_subset(fd_set, fd_to_fdset_map):
             max_subset = fs
     return max_subset
 
-
 def merge_graphs_with_cache(fd_set, graphs, r, laji_fds, graph_cache, fd_to_fdset_map):
     """Merges conflict graphs of the given FD set, using cache if possible."""
     fd_set_frozen = frozenset(fd_set)
