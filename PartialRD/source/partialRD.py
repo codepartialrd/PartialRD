@@ -1,3 +1,4 @@
+import pdb
 from collections import defaultdict
 import networkx as nx
 import pandas as pd
@@ -12,12 +13,8 @@ def build_equivalence_dict(r, lhs, rhs):
         eq_dict[lhs_val][rhs_val].append(idx)
     return eq_dict
 
-def maximal_afd_tuples(r, afd_list):
+def maximal_afd_tuples(r, afd_list,n):
     G = nx.Graph()
-    n = len(r)
-    start_time = time.time()
-
-    # Step 1: Build conflict graph
     for afd in afd_list:
         lhs, rhs = afd["lhs"], afd["rhs"]
         eq_dict = build_equivalence_dict(r, lhs, rhs)
@@ -29,24 +26,13 @@ def maximal_afd_tuples(r, afd_list):
                 for j in range(i + 1, len(group_lists)):
                     G.add_edges_from((a, b) for a in group_lists[i] for b in group_lists[j])
 
-    end_time = time.time()
-    print(f"Time to construct conflict graph: {end_time - start_time:.4f} s")
-
-    # Step 2: Select maximal AFD-consistent tuples
-    start_time = time.time()
     V = set(range(n))
     T_prime = set()
     conflict_nodes = set(G.nodes)
-    print(f"Number of Tuples: {n}")
-    print(f"Conflict Graph Nodes: {len(conflict_nodes)}")
-    print(f"Proportion: {len(conflict_nodes) / n:.2%}")
-
-    # Greedy deletion (minimum-degree-first)
     degree_map = dict(G.degree)
     heap = [(deg, node) for node, deg in degree_map.items()]
     heapq.heapify(heap)
     deleted = set()
-
     while heap:
         deg, u = heapq.heappop(heap)
         if u in deleted:
@@ -54,28 +40,17 @@ def maximal_afd_tuples(r, afd_list):
         T_prime.add(u)
         deleted.add(u)
         deleted.update(G.neighbors(u))
-
-    # Add tuples not in conflict
     T_prime.update(V - conflict_nodes)
-    r_prime = [r[i] for i in sorted(T_prime)]
-    end_time = time.time()
-    print(f"Time to identify maximal AFD tuples: {end_time - start_time:.4f} s")
-    return r_prime
+    conflict_nodes=V - T_prime
+    return conflict_nodes
 
-def PartialRD(r, afd_list, relation_schemas):
-    r_prime = maximal_afd_tuples(r, afd_list)
+def PartialRD(r, r_all, afd_list, relation_schemas,n):
+    conflict_nodes = maximal_afd_tuples(r, afd_list,n)
     result = {}
-
-    # Project into subrelations
-    r_df = pd.DataFrame(r_prime)
+    r0_df = r_all[r_all.index.isin(conflict_nodes)] # 包含 index_list 的子集
+    r_df = r_all[~r_all.index.isin(conflict_nodes)]
     for idx, schema in enumerate(relation_schemas):
         sub_df = r_df[schema].drop_duplicates()
         result[f"r{idx + 1}"] = sub_df.to_dict(orient='records')
-
-    # Extract residual tuples (r0)
-    r_all = pd.DataFrame(r)
-    r_prime_df = pd.DataFrame(r_prime)
-    r0_df = pd.concat([r_all, r_prime_df]).drop_duplicates(keep=False)
     result["r0"] = r0_df.to_dict(orient="records")
-
     return result
